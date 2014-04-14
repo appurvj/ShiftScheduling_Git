@@ -1,0 +1,155 @@
+#!/usr/local/bin/python
+import pymprog as math
+import pprint
+
+debug_on = False 
+dispGASlots = True
+dispGASlotCount = True
+dispOffSch = True
+
+## Problem Config  ##
+gaList = ['Appurv', 'Ashley', 'Bianca', 'Kristy', 'Rob', 'Jason',
+'Davona', 'Rocky', 'Taylor', 'Praveen','Alex', 'Laurel', 'Harshita', 
+'Thomas','Chris', 'Tyler', 'Angela']
+reqSlotsPerGA = [18,9,9,9,9,9,9,9,9,9,9,9,4,4,4,4,4]
+officeList = ['RiverKnoll', 'Colony']
+daysList = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+slotsList = ['9am', '10am', '11am', '12pm', '1pm', '2pm', '3pm', '4pm']
+
+
+
+##  Mathematical Model  ##
+p = math.model('Shift Assignment 2') # Starting the model
+
+#if debug_on: p.verbose(True)
+
+
+##  Sets  ##
+GAs = range(len(gaList)) # Set of student staff
+SLOTS = range(len(slotsList)) # Set of shift slots per day (1/2 hour each)
+OFFICES = range(len(officeList)) # Set of offices
+DAYS = range(len(daysList)) # Set of days when office is open
+
+
+##  Params  ##
+alpha = [[[1 for k in DAYS] for j in SLOTS] for i in GAs]
+kappa = [0 for k in GAs]
+maxConsecutiveSlots = 5  # Max consecutive slots allowed in an assignment
+minConsecutiveSlots = 2  # Min consecutive slots required in an assignment
+if debug_on: print '\nParams Set...'
+
+## Variables  ##
+x = p.var(math.iprod(GAs,SLOTS,OFFICES,DAYS), 'X',bool) # 1 if a shift starts at that point, else 0
+y = p.var(math.iprod(GAs,SLOTS, DAYS),'COUNT', kind=int) # indicates the number of slots assigned for a shift
+z = p.var(math.iprod(GAs,SLOTS, OFFICES, DAYS), 'OfficeCover', bool) # 1 if office is covered for that slot by that ga on that day, else 0
+0<= y <=maxConsecutiveSlots
+if debug_on: print '\nVariables Declared...'
+
+##  Objective Function  ##
+p.max(sum(x[g,s,o,d] for g in GAs for s in SLOTS for o in OFFICES for d in DAYS))
+if debug_on: print '\nObjective Function Set...'
+print(type(y))
+
+##  Constraints  ##
+
+#p.st( # No other shifts can clash with a shift that has already been assigned
+#[sum(x[g,j,o,d] for o in OFFICES for j in xrange(s, int(y[g,s,d].primal))) <= 1 for g in GAs for s in SLOTS for d in DAYS],
+#'singleAssignment')
+#if debug_on: print '\nConstraint 4 entered...'
+
+
+#p.st(#Slots should not be assigned if shift does not start at that point
+#[y[g,s,d] <= maxConsecutiveSlots*sum(int(x[g,s,o,d].primal) for o in OFFICES ) for g in GAs for s in SLOTS for d in DAYS],
+#'validSlotAssignment')
+#if debug_on: print '\nConstraint 1 entered...'
+
+p.st(#Slots should not be assigned if shift does not start at that point
+[y[g,s,d] <= y[g,s,d]*sum(int(x[g,s,o,d].primal) for o in OFFICES ) for g in GAs for s in SLOTS for d in DAYS],
+'validSlotAssignment')
+if debug_on: print '\nConstraint 1 entered...'
+
+p.st(# Number of slots assigned should not go out of bounds of the available time periods
+[y[g,s,d] <= (len(SLOTS)-s) for g in GAs for s in SLOTS for d in DAYS],
+'PreventSlotOverFlow')
+if debug_on: print '\nConstraint 2 entered...'
+
+p.st(# Minimum slot assignment criteria should be met
+[y[g,s,d] >= minConsecutiveSlots*sum(x[g,s,o,d] for o in OFFICES) for g in GAs for s in SLOTS for d in DAYS],
+'MinSlotAssigned')
+if debug_on: print '\nConstraint 3 entered...'
+
+
+
+p.st( # GA must be available for the duration of the shift being assigned
+[sum(alpha[g][j][d] for j in range(s, int(s+ y[g,s,d].primal))) == y[g,s,d] for g in GAs for s in SLOTS for d in DAYS],
+'matchAvailability')
+if debug_on: print '\nConstraint 5 entered...'
+
+
+p.st( # Each GA should be allotted the total slots required to be allotted
+[sum(y[g,s,d] for s in SLOTS for d in DAYS) == reqSlotsPerGA[g] for g in GAs],
+'HoursRequirements')
+if debug_on: print '\nConstraint 6 entered...'
+
+p.st( # Every office should be covered for every slot
+[sum(z[g,s,o,d] for g in GAs) >= 1 for s in SLOTS for o in OFFICES for d in DAYS],
+'CoverOffice')
+if debug_on: print '\nConstraint 7 entered...'
+
+
+
+
+
+p.st( # when a start of a slot is encountered, th corresponding slots in z for the shift length should be 1
+[z[g,j,o,d] == x[g,s,o,d] for j in range(s, s+int(y[g,s,d].primal)) for g in GAs for s in SLOTS for o in OFFICES for d in DAYS],
+'PopulateZ')
+if debug_on: print '\nConstraint 8 entered...'
+
+p.st(
+[sum(z[g,s,o,d] for g in GAs) >= 1 for s in SLOTS for o in OFFICES for d in DAYS ],
+'keepOfficeStaffed')
+if debug_on: print '\nConstraints Entered...'
+
+
+
+##  Calling Solver  ##
+if debug_on: print '\nCalling Solver...'
+p.solve(float)
+print "\nSIMPLEX DONE:", p.status()
+#p.solve(int)
+print '\nOptimal Soln:', p.vobj()
+
+
+##  Printing Results  ##
+if dispGASlots or dispGASlotCount:
+	print ' \n\nDisplaying GA slot assignment/count..'
+	for g in GAs:
+		count = 0 
+		if dispGASlots:
+			print ' '
+			print gaList[g] ,':'
+		for d in DAYS:
+			for (s,o) in math.iprod(SLOTS, OFFICES):
+				if z[g,s,o,d].primal >= 1 :
+					count += 1
+					if dispGASlots:
+						print daysList[d], slotsList[s], officeList[o]
+		if dispGASlotCount:
+			print gaList[g] ,':', count, 'slots'
+
+if dispOffSch:
+	print ' \n\nChecking slot fulillment..'
+	for o in OFFICES:
+		print '\n', officeList[o]
+		for s in SLOTS:
+			printList = [slotsList[s],'  ']
+			for d in DAYS:
+				subList = [daysList[d]]
+				for g in GAs:
+					if z[g,s,o,d].primal >= 1: subList.append(gaList[g])
+				subList.append('  ')
+				printList.append(subList)
+			print printList
+
+
+
