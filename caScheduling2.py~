@@ -72,10 +72,10 @@ p.st(# Number of slots assigned should not go out of bounds of the available tim
 'PreventSlotOverFlow')
 if debug_on: print '\nConstraint 2 entered...'
 
-p.st(# Minimum slot assignment criteria should be met
-[y[g,s,d] >= minConsecutiveSlots*sum(x[g,s,o,d] for o in OFFICES) for g in GAs for s in SLOTS for d in DAYS],
-'MinSlotAssigned')
-if debug_on: print '\nConstraint 3 entered...'
+#p.st(# Minimum slot assignment criteria should be met
+#[y[g,s,d] >= minConsecutiveSlots*sum(x[g,s,o,d] for o in OFFICES) for g in GAs for s in SLOTS for d in DAYS],
+#'MinSlotAssigned')
+#if debug_on: print '\nConstraint 3 entered...'
 
 
 
@@ -85,10 +85,10 @@ if debug_on: print '\nConstraint 3 entered...'
 #if debug_on: print '\nConstraint 5 entered...'
 
 
-p.st( # Each GA should be allotted the total slots required to be allotted
-[sum(y[g,s,d] for s in SLOTS for d in DAYS) == reqSlotsPerGA[g] for g in GAs],
-'HoursRequirements')
-if debug_on: print '\nConstraint 6 entered...'
+#p.st( # Each GA should be allotted the total slots required to be allotted
+#[sum(y[g,s,d] for s in SLOTS for d in DAYS) == reqSlotsPerGA[g] for g in GAs],
+#'HoursRequirements')
+#if debug_on: print '\nConstraint 6 entered...'
 
 p.st( # Every office should be covered for every slot
 [sum(z[g,s,o,d] for g in GAs) >= 1 for s in SLOTS for o in OFFICES for d in DAYS],
